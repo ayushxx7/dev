@@ -36,46 +36,38 @@ def load_faiss_vector_store(path="faiss_index"):
     return FAISS.load_local(path, embeddings, allow_dangerous_deserialization=True)
 
 # Streamlit App
-st.title("RAG Chatbot with YouTube Videos")
-st.write("Upload a `youtube_videos.json` file. Ask questions based on the contents.")
+st.title("RAG Chatbot for YouTube Videos")
+st.write("Ask questions based on the contents of the database.")
 
-uploaded_file = st.file_uploader("Upload your JSON file", type=["json"])
+# Remove the file uploader and use a fixed path
+JSON_PATH = "youtube_videos.json"
 
-if uploaded_file is not None:
-    os.makedirs("uploaded", exist_ok=True)
-    file_path = f"uploaded/{uploaded_file.name}"
-    
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
+# Load and process JSON data
+try:
+    st.info("Loading vector database...")
+    json_data = load_json_data(JSON_PATH)
+    text = extract_text_from_json(json_data)
+except Exception as e:
+    st.error(f"Error loading JSON data: {e}")
+    st.stop()
 
-    # Load and process JSON data
-    try:
-        st.info("Loading JSON data...")
-        json_data = load_json_data(file_path)
-        text = extract_text_from_json(json_data)
-    except Exception as e:
-        st.error(f"Error loading JSON data: {e}")
-        st.stop()
+if not text.strip():
+    st.error("No usable content found in the JSON file.")
+    st.stop()
 
-    if not text.strip():
-        st.error("No usable content found in the JSON file.")
-        st.stop()
+create_faiss_vector_store(text)
+st.success("Chatbot is ready!")
+vector_store = load_faiss_vector_store()
 
-    st.info("Creating FAISS vector store...")
-    create_faiss_vector_store(text)
-    st.info("Vector store created.")
-    st.success("Chatbot is ready!")
-    vector_store = load_faiss_vector_store()
+question = st.text_input("Ask a question about YouTube videos:")
+if question:
+    st.info("Retrieving context from the content...")
+    retriever = vector_store.as_retriever()
+    docs = retriever.get_relevant_documents(question)
+    context = "\n\n".join([doc.page_content for doc in docs])
 
-    question = st.text_input("Ask a question about the YouTube videos:")
-    if question:
-        st.info("Retrieving context from the content...")
-        retriever = vector_store.as_retriever()
-        docs = retriever.get_relevant_documents(question)
-        context = "\n\n".join([doc.page_content for doc in docs])
-
-        prompt = f"""Answer the question based on the following context:\n\n{context}\n\nQuestion: {question}"""
-        st.info("Querying Gemini...")
-        response = model.generate_content(prompt)
-        answer = response.text if response else "No response from Gemini."
-        st.markdown(f"**Answer:** {answer}")
+    prompt = f"""Answer the question based on the following context:\n\n{context}\n\nQuestion: {question}"""
+    st.info("Querying Gemini...")
+    response = model.generate_content(prompt)
+    answer = response.text if response else "No response from Gemini."
+    st.markdown(f"**Answer:** {answer}")
