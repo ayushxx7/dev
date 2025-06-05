@@ -36,8 +36,17 @@ def load_faiss_vector_store(path="faiss_index"):
     return FAISS.load_local(path, embeddings, allow_dangerous_deserialization=True)
 
 # Streamlit App
-st.title("RAG Chatbot for YouTube Videos")
-st.write("Ask questions based on the contents of the database.")
+st.markdown(
+    """
+    <div style='text-align: center;'>
+        <img src='https://www.bollywoodhungama.com/wp-content/themes/bh-theme/images/logo.png' width='250'/>
+        <h1 style='color: #e50914; font-family: "Comic Sans MS", cursive, sans-serif;'>Bollywood Hungama Chatbot 🎬✨</h1>
+        <p style='font-size: 20px; color: #ff9800;'>Lights, Camera, Action! Ask anything about your favorite Bollywood videos and let the Hungama begin! 💃🕺</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+st.balloons()
 
 # Chat history in session state
 if "chat_history" not in st.session_state:
