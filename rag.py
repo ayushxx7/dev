@@ -39,6 +39,10 @@ def load_faiss_vector_store(path="faiss_index"):
 st.title("RAG Chatbot for YouTube Videos")
 st.write("Ask questions based on the contents of the database.")
 
+# Chat history in session state
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
 # Remove the file uploader and use a fixed path
 JSON_PATH = "youtube_videos.json"
 
@@ -60,14 +64,39 @@ st.success("Chatbot is ready!")
 vector_store = load_faiss_vector_store()
 
 question = st.text_input("Ask a question about YouTube videos:")
+
 if question:
+    # Build chat history string for retrieval
+    retrieval_query = ""
+    for entry in st.session_state.chat_history:
+        retrieval_query += f"User: {entry['question']}\nBot: {entry['answer']}\n"
+    retrieval_query += f"User: {question}"
+
     st.info("Retrieving context from the content...")
     retriever = vector_store.as_retriever()
-    docs = retriever.get_relevant_documents(question)
+    docs = retriever.get_relevant_documents(retrieval_query)
     context = "\n\n".join([doc.page_content for doc in docs])
 
-    prompt = f"""Answer the question based on the following context:\n\n{context}\n\nQuestion: {question}"""
+    # Build chat history string for Gemini prompt
+    history_str = ""
+    for entry in st.session_state.chat_history:
+        history_str += f"User: {entry['question']}\nBot: {entry['answer']}\n"
+
+    # Compose prompt with history
+    prompt = (
+        f"{history_str}"
+        f"Context:\n{context}\n\n"
+        f"User: {question}\nBot:"
+    )
+
     st.info("Querying Gemini...")
     response = model.generate_content(prompt)
     answer = response.text if response else "No response from Gemini."
-    st.markdown(f"**Answer:** {answer}")
+    st.session_state.chat_history.append({"question": question, "answer": answer})
+
+# Display chat history
+if st.session_state.chat_history:
+    st.markdown("### Chat History")
+    for entry in st.session_state.chat_history[::-1]:
+        st.markdown(f"**You:** {entry['question']}")
+        st.markdown(f"**Bot:** {entry['answer']}")
